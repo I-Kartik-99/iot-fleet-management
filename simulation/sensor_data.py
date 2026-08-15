@@ -1,15 +1,19 @@
-# simulator/telemetry_simulator.py
-
 import random
 import time
 import threading
 from datetime import datetime
 import requests
+import json
 
 
 class TelemetrySimulator:
 
-    def __init__(self, device_id="ESP32-001", interval=2, api_url="http://127.0.0.1:8000/telemetry"):
+    def __init__(
+        self,
+        device_id,
+        interval=2,
+        api_url="http://127.0.0.1:8000/telemetry"
+    ):
         self.device_id = device_id
         self.interval = interval
         self.api_url = api_url
@@ -41,6 +45,7 @@ class TelemetrySimulator:
             print(
                 f"[{self.device_id}] "
                 f"Status: {response.status_code}"
+                f"Response: {response.json()}"  
             )
 
         except requests.RequestException as error:
@@ -60,6 +65,7 @@ class TelemetrySimulator:
             time.sleep(self.interval)
 
     def start(self):
+
         if self.running:
             return
 
@@ -73,6 +79,7 @@ class TelemetrySimulator:
         self.thread.start()
 
     def stop(self):
+
         self.running = False
 
         if self.thread:

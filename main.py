@@ -1,5 +1,6 @@
 import time
 
+from app.models.device import Device
 from simulation.sensor_data import TelemetrySimulator
 
 
