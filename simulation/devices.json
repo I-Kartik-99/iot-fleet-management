@@ -1,28 +1,36 @@
 {
-    "devices": [
-        {
-            "device_id": "ESP32-001",
-            "name": "Temperature Sensor 1",
-            "device_type": "temperature_sensor",
-            "location": "Plant-1",
-            "firmware_version": "1.0.0",
-            "interval": 2
-        },
-        {
-            "device_id": "ESP32-002",
-            "name": "Temperature Sensor 2",
-            "device_type": "temperature_sensor",
-            "location": "Plant-1",
-            "firmware_version": "1.0.0",
-            "interval": 3
-        },
-        {
-            "device_id": "ESP32-003",
-            "name": "Pressure Sensor 1",
-            "device_type": "pressure_sensor",
-            "location": "Plant-2",
-            "firmware_version": "1.2.0",
-            "interval": 4
-        }
-    ]
+  "devices": [
+    {
+      "device_id": "ESP32-001",
+      "name": "Temperature Sensor 1",
+      "device_type": "temperature_sensor",
+      "location": "Plant-1",
+      "firmware_version": "1.0.0",
+      "interval": 2
+    },
+    {
+      "device_id": "ESP32-002",
+      "name": "Temperature Sensor 2",
+      "device_type": "temperature_sensor",
+      "location": "Plant-1",
+      "firmware_version": "1.0.0",
+      "interval": 2
+    },
+    {
+      "device_id": "ESP32-003",
+      "name": "Pressure Sensor 1",
+      "device_type": "pressure_sensor",
+      "location": "Plant-2",
+      "firmware_version": "1.2.0",
+      "interval": 2
+    },
+    {
+      "device_id": "ESP32-004",
+      "name": "Pressure Sensor 2",
+      "device_type": "pressure_sensor",
+      "location": "Factory-B",
+      "firmware_version": "1.0.0",
+      "interval": 2
+    }
+  ]
 }

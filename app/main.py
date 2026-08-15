@@ -1,24 +1,54 @@
 from datetime import datetime
 from typing import Dict
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel
 
 from app.database import Base, engine, SessionLocal
-from app.models import device
 from app.models.telemetry import Telemetry
 from app.models.device import Device
+
 from fastapi import FastAPI, HTTPException
 
+import json
+import paho.mqtt.client as mqtt
+
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500",
+        "http://127.0.0.1:5500"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# =========================
+# MQTT CONFIGURATION
+# =========================
+
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_TOPIC = "devices/+/telemetry"
 
 
 Base.metadata.create_all(bind=engine)
 
 
+# =========================
+# PYDANTIC MODELS
+# =========================
+
 class TelemetryData(BaseModel):
     device_id: str
     timestamp: datetime
     telemetry: Dict[str, float]
+
 
 class DeviceData(BaseModel):
     device_id: str
@@ -28,8 +58,126 @@ class DeviceData(BaseModel):
     firmware_version: str | None = None
 
 
+# =========================
+# TELEMETRY DATABASE FUNCTION
+# =========================
+
+def store_telemetry(data):
+
+    db = SessionLocal()
+
+    try:
+
+        # Check whether device is registered
+        device = (
+            db.query(Device)
+            .filter(Device.device_id == data["device_id"])
+            .first()
+        )
+
+        if not device:
+            print(
+                f"Device {data['device_id']} is not registered"
+            )
+            return None
+
+        # Update device status
+        device.status = "ONLINE"
+        device.last_seen = datetime.utcnow()
+
+        # Create telemetry record
+        telemetry_record = Telemetry(
+            device_id=data["device_id"],
+            temperature=data["telemetry"].get("temperature"),
+            humidity=data["telemetry"].get("humidity"),
+            voltage=data["telemetry"].get("voltage"),
+            pressure=data["telemetry"].get("pressure"),
+            timestamp=datetime.fromisoformat(
+                data["timestamp"]
+            )
+        )
+
+        db.add(telemetry_record)
+
+        db.commit()
+
+        db.refresh(telemetry_record)
+
+        print(
+            f"Telemetry stored: "
+            f"{data['device_id']}"
+        )
+
+        return telemetry_record.id
+
+    finally:
+
+        db.close()
+
+
+# =========================
+# MQTT CALLBACKS
+# =========================
+
+def on_connect(client, userdata, flags, reason_code, properties):
+
+    print("Connected to MQTT broker")
+
+    client.subscribe(MQTT_TOPIC)
+
+    print(
+        f"Subscribed to: {MQTT_TOPIC}"
+    )
+
+
+def on_message(client, userdata, message):
+
+    try:
+
+        payload = message.payload.decode()
+
+        data = json.loads(payload)
+
+        print(
+            f"MQTT received: "
+            f"{message.topic}"
+        )
+
+        store_telemetry(data)
+
+    except Exception as error:
+
+        print(
+            f"MQTT processing error: {error}"
+        )
+
+
+# =========================
+# MQTT CLIENT
+# =========================
+
+mqtt_client = mqtt.Client(
+    mqtt.CallbackAPIVersion.VERSION2
+)
+
+mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
+
+mqtt_client.connect(
+    MQTT_BROKER,
+    MQTT_PORT
+)
+
+mqtt_client.loop_start()
+
+
+# =========================
+# API ROUTES
+# =========================
+
 @app.get("/")
 def root():
+
     return {
         "message": "IoT Fleet Management API is running"
     }
@@ -37,16 +185,21 @@ def root():
 
 @app.get("/health")
 def health():
+
     return {
         "status": "ok"
     }
+
+
+# =========================
+# DEVICE REGISTRATION
+# =========================
 
 @app.post("/devices")
 def register_device(data: DeviceData):
 
     db = SessionLocal()
 
-    # Check if device already exists
     existing_device = (
         db.query(Device)
         .filter(Device.device_id == data.device_id)
@@ -54,6 +207,7 @@ def register_device(data: DeviceData):
     )
 
     if existing_device:
+
         db.close()
 
         return {
@@ -71,7 +225,9 @@ def register_device(data: DeviceData):
     )
 
     db.add(device)
+
     db.commit()
+
     db.refresh(device)
 
     device_id = device.device_id
@@ -82,6 +238,11 @@ def register_device(data: DeviceData):
         "status": "registered",
         "device_id": device_id
     }
+
+
+# =========================
+# GET ALL DEVICES
+# =========================
 
 @app.get("/devices")
 def get_devices():
@@ -94,6 +255,11 @@ def get_devices():
 
     return devices
 
+
+# =========================
+# GET SINGLE DEVICE
+# =========================
+
 @app.get("/devices/{device_id}")
 def get_device(device_id: str):
 
@@ -105,9 +271,8 @@ def get_device(device_id: str):
         .first()
     )
 
-    db.close()
-
     if not device:
+
         db.close()
 
         raise HTTPException(
@@ -115,7 +280,14 @@ def get_device(device_id: str):
             detail=f"Device {device_id} is not registered"
         )
 
+    db.close()
+
     return device
+
+
+# =========================
+# DEVICE STATUS
+# =========================
 
 @app.get("/devices/{device_id}/status")
 def get_device_status(device_id: str):
@@ -129,6 +301,7 @@ def get_device_status(device_id: str):
     )
 
     if not device:
+
         db.close()
 
         return {
@@ -137,18 +310,24 @@ def get_device_status(device_id: str):
             "device_id": device_id
         }
 
-    # Device has never sent telemetry
     if device.last_seen is None:
+
         current_status = "OFFLINE"
+
     else:
-        time_since_last_seen = datetime.utcnow() - device.last_seen
+
+        time_since_last_seen = (
+            datetime.utcnow() - device.last_seen
+        )
 
         if time_since_last_seen.total_seconds() < 60:
+
             current_status = "ONLINE"
+
         else:
+
             current_status = "OFFLINE"
 
-    # Update status in database
     device.status = current_status
 
     db.commit()
@@ -163,47 +342,30 @@ def get_device_status(device_id: str):
         "last_seen": last_seen
     }
 
+
+# =========================
+# HTTP TELEMETRY
+# =========================
+
 @app.post("/telemetry")
 def receive_telemetry(data: TelemetryData):
 
-    db = SessionLocal()
+    telemetry_data = {
+        "device_id": data.device_id,
+        "timestamp": data.timestamp.isoformat(),
+        "telemetry": data.telemetry
+    }
 
-    # Check whether device is registered
-    device = (
-        db.query(Device)
-        .filter(Device.device_id == data.device_id)
-        .first()
+    record_id = store_telemetry(
+        telemetry_data
     )
 
-    if not device:
-        db.close()
+    if record_id is None:
 
         raise HTTPException(
             status_code=404,
             detail=f"Device {data.device_id} is not registered"
         )
-    
-    device.status = "ONLINE"
-    device.last_seen = datetime.utcnow()
-
-    telemetry_record = Telemetry(
-        device_id=data.device_id,
-        temperature=data.telemetry.get("temperature"),
-        humidity=data.telemetry.get("humidity"),
-        voltage=data.telemetry.get("voltage"),
-        pressure=data.telemetry.get("pressure"),
-        timestamp=data.timestamp
-    )
-
-    db.add(telemetry_record)
-
-    db.commit()
-
-    db.refresh(telemetry_record)
-
-    record_id = telemetry_record.id
-
-    db.close()
 
     return {
         "status": "stored",
@@ -211,15 +373,25 @@ def receive_telemetry(data: TelemetryData):
         "device_id": data.device_id
     }
 
+
+# =========================
+# TELEMETRY HISTORY
+# =========================
+
 @app.get("/devices/{device_id}/telemetry")
-def get_device_telemetry(device_id: str, limit: int = 5):
+def get_device_telemetry(
+    device_id: str,
+    limit: int = 5
+):
 
     db = SessionLocal()
 
     records = (
         db.query(Telemetry)
         .filter(Telemetry.device_id == device_id)
-        .order_by(Telemetry.timestamp.desc())
+        .order_by(
+            Telemetry.timestamp.desc()
+        )
         .limit(limit)
         .all()
     )

@@ -2,8 +2,8 @@ import random
 import time
 import threading
 from datetime import datetime
-import requests
 import json
+import paho.mqtt.client as mqtt
 
 
 class TelemetrySimulator:
@@ -12,16 +12,31 @@ class TelemetrySimulator:
         self,
         device_id,
         interval=2,
-        api_url="http://127.0.0.1:8000/telemetry"
+        broker="127.0.0.1",
+        port=1883
     ):
         self.device_id = device_id
         self.interval = interval
-        self.api_url = api_url
+
+        self.broker = broker
+        self.port = port
 
         self.running = False
         self.thread = None
 
+        self.mqtt_client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2
+        )
+
+        self.mqtt_client.connect(
+            self.broker,
+            self.port
+        )
+
+        self.mqtt_client.loop_start()
+
     def generate_telemetry(self):
+
         return {
             "device_id": self.device_id,
             "timestamp": datetime.now().isoformat(),
@@ -35,23 +50,24 @@ class TelemetrySimulator:
 
     def send_telemetry(self, data):
 
-        try:
-            response = requests.post(
-                self.api_url,
-                json=data,
-                timeout=5
-            )
+        topic = f"devices/{self.device_id}/telemetry"
 
+        payload = json.dumps(data)
+
+        result = self.mqtt_client.publish(
+            topic,
+            payload
+        )
+
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
             print(
                 f"[{self.device_id}] "
-                f"Status: {response.status_code}"
-                f"Response: {response.json()}"  
+                f"MQTT Published"
             )
-
-        except requests.RequestException as error:
+        else:
             print(
                 f"[{self.device_id}] "
-                f"Failed to send telemetry: {error}"
+                f"MQTT Publish Failed"
             )
 
     def run(self):
@@ -84,3 +100,6 @@ class TelemetrySimulator:
 
         if self.thread:
             self.thread.join()
+
+        self.mqtt_client.loop_stop()
+        self.mqtt_client.disconnect()

@@ -1,7 +1,11 @@
 import json
 import time
+import requests
 
 from simulation.sensor_data import TelemetrySimulator
+
+
+API_BASE_URL = "http://127.0.0.1:8000"
 
 
 def load_devices():
@@ -12,36 +16,96 @@ def load_devices():
     return config["devices"]
 
 
-devices = load_devices()
+def register_device(device):
 
-sensors = []
+    try:
 
-for device in devices:
+        response = requests.post(
+            f"{API_BASE_URL}/devices",
+            json={
+                "device_id": device["device_id"],
+                "name": device["name"],
+                "device_type": device["device_type"],
+                "location": device.get("location"),
+                "firmware_version": device.get("firmware_version")
+            },
+            timeout=5
+        )
 
-    sensor = TelemetrySimulator(
-        device_id=device["device_id"],
-        interval=device["interval"]
-    )
+        if response.status_code == 200:
 
-    sensor.start()
+            result = response.json()
 
-    sensors.append(sensor)
+            if result.get("status") == "registered":
 
-    print(
-        f"Started simulator: {device['device_id']}"
-    )
+                print(
+                    f"[{device['device_id']}] "
+                    f"Registered successfully"
+                )
+
+            elif result.get("status") == "error":
+
+                print(
+                    f"[{device['device_id']}] "
+                    f"Already registered"
+                )
+
+        else:
+
+            print(
+                f"[{device['device_id']}] "
+                f"Registration failed: "
+                f"{response.status_code}"
+            )
+
+    except requests.RequestException as error:
+
+        print(
+            f"[{device['device_id']}] "
+            f"Registration request failed: {error}"
+        )
 
 
-try:
+def main():
 
-    while True:
-        time.sleep(1)
+    devices = load_devices()
 
-except KeyboardInterrupt:
+    sensors = []
 
-    print("\nStopping telemetry simulators...")
+    for device in devices:
 
-    for sensor in sensors:
-        sensor.stop()
+        # Register device in FastAPI
+        register_device(device)
 
-    print("Telemetry simulators stopped")
+        # Start MQTT simulator
+        sensor = TelemetrySimulator(
+            device_id=device["device_id"],
+            interval=device["interval"]
+        )
+
+        sensor.start()
+
+        sensors.append(sensor)
+
+        print(
+            f"Started simulator: "
+            f"{device['device_id']}"
+        )
+
+    try:
+
+        while True:
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+
+        print("\nStopping telemetry simulators...")
+
+        for sensor in sensors:
+            sensor.stop()
+
+        print("Telemetry simulators stopped")
+
+
+if __name__ == "__main__":
+    main()
