@@ -1,21 +1,47 @@
+import json
 import time
 
-from app.models.device import Device
 from simulation.sensor_data import TelemetrySimulator
 
 
-sensor = TelemetrySimulator(
-    device_id="ESP32-001",
-    interval=2
-)
+def load_devices():
 
-sensor.start()
+    with open("simulation/devices.json", "r") as file:
+        config = json.load(file)
+
+    return config["devices"]
+
+
+devices = load_devices()
+
+sensors = []
+
+for device in devices:
+
+    sensor = TelemetrySimulator(
+        device_id=device["device_id"],
+        interval=device["interval"]
+    )
+
+    sensor.start()
+
+    sensors.append(sensor)
+
+    print(
+        f"Started simulator: {device['device_id']}"
+    )
+
 
 try:
+
     while True:
         time.sleep(1)
 
 except KeyboardInterrupt:
-    sensor.stop()
 
-    print("Telemetry simulator stopped")
+    print("\nStopping telemetry simulators...")
+
+    for sensor in sensors:
+        sensor.stop()
+
+    print("Telemetry simulators stopped")
