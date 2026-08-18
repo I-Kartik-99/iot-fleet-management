@@ -5,44 +5,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>IoT Fleet Dashboard</title>
+    <title>IoT Fleet Manager</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <header>
-        <h1>IoT Fleet Dashboard</h1>
-        <p>Live device monitoring</p>
+    <!-- ================= HEADER ================= -->
+
+    <header class="topbar">
+
+        <div class="brand">
+            <div class="brand-icon">⌁</div>
+
+            <div>
+                <h2>IoT Fleet Manager</h2>
+            </div>
+        </div>
+
+        <nav>
+            <a class="active" href="index.html">Dashboard</a>
+            <a href="#devices">Devices</a>
+            <a href="#analytics">Analytics</a>
+            <a href="#settings">Settings</a>
+        </nav>
+
+        <div class="system-status">
+            <span class="system-dot"></span>
+            System Online
+        </div>
+
     </header>
 
-    <section class="summary">
 
-        <div class="summary-card">
-            <span>Total Devices</span>
-            <strong id="total-devices">0</strong>
-        </div>
-
-        <div class="summary-card online">
-            <span>Online</span>
-            <strong id="online-devices">0</strong>
-        </div>
-
-        <div class="summary-card offline">
-            <span>Offline</span>
-            <strong id="offline-devices">0</strong>
-        </div>
-
-    </section>
+    <!-- ================= MAIN ================= -->
 
     <main>
 
-        <div id="device-container" class="device-grid">
-            <p>Loading devices...</p>
-        </div>
+        <!-- Page heading -->
+
+        <section class="page-heading">
+
+            <div>
+                <p class="eyebrow">FLEET OVERVIEW</p>
+
+                <h1>Dashboard</h1>
+
+                <p class="subtitle">
+                    Monitor your IoT devices and live telemetry in real-time.
+                </p>
+            </div>
+
+            <div class="refresh-info">
+                <span class="live-dot"></span>
+                Live updates every 3 seconds
+            </div>
+
+        </section>
+
+
+        <!-- ================= SUMMARY ================= -->
+
+        <section class="summary">
+
+            <div class="summary-card">
+
+                <div class="summary-icon blue">
+                    ◈
+                </div>
+
+                <div>
+                    <span>Total Devices</span>
+                    <strong id="total-devices">0</strong>
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="summary-icon green">
+                    ✓
+                </div>
+
+                <div>
+                    <span>Online</span>
+                    <strong id="online-devices" class="online-number">
+                        0
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="summary-icon red">
+                    !
+                </div>
+
+                <div>
+                    <span>Offline</span>
+                    <strong id="offline-devices" class="offline-number">
+                        0
+                    </strong>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= DEVICES ================= -->
+
+        <section id="devices" class="devices-section">
+
+            <div class="section-heading">
+
+                <div>
+                    <h2>Registered Devices</h2>
+
+                    <p>
+                        Live status and latest telemetry from your fleet
+                    </p>
+                </div>
+
+                <div class="device-count" id="device-count">
+                    0 devices
+                </div>
+
+            </div>
+
+
+            <div id="device-container" class="device-grid">
+
+                <div class="loading-card">
+                    <div class="loader"></div>
+                    <span>Loading devices...</span>
+                </div>
+
+            </div>
+
+        </section>
 
     </main>
+
 
     <script src="app.js"></script>
 

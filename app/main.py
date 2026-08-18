@@ -9,11 +9,20 @@ from app.database import Base, engine, SessionLocal
 from app.models.telemetry import Telemetry
 from app.models.device import Device
 
-from fastapi import FastAPI, HTTPException
-
 import json
 import paho.mqtt.client as mqtt
 
+from app.models.user import User
+from app.schemas.auth import LoginData, Token
+
+from app.auth.auth import (
+    verify_password,
+    create_access_token,
+    get_current_user
+)
+
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 
 app = FastAPI()
 
@@ -245,7 +254,9 @@ def register_device(data: DeviceData):
 # =========================
 
 @app.get("/devices")
-def get_devices():
+def get_devices(
+    current_user: str = Depends(get_current_user)
+):
 
     db = SessionLocal()
 
@@ -261,7 +272,10 @@ def get_devices():
 # =========================
 
 @app.get("/devices/{device_id}")
-def get_device(device_id: str):
+def get_device(
+    device_id: str,
+    current_user: str = Depends(get_current_user)
+):
 
     db = SessionLocal()
 
@@ -290,7 +304,10 @@ def get_device(device_id: str):
 # =========================
 
 @app.get("/devices/{device_id}/status")
-def get_device_status(device_id: str):
+def get_device_status(
+    device_id: str,
+    current_user: str = Depends(get_current_user)
+):
 
     db = SessionLocal()
 
@@ -381,7 +398,8 @@ def receive_telemetry(data: TelemetryData):
 @app.get("/devices/{device_id}/telemetry")
 def get_device_telemetry(
     device_id: str,
-    limit: int = 5
+    limit: int = 5,
+    current_user: str = Depends(get_current_user)
 ):
 
     db = SessionLocal()
@@ -399,3 +417,45 @@ def get_device_telemetry(
     db.close()
 
     return records
+
+@app.post("/auth/login", response_model=Token)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends()
+):
+    db = SessionLocal()
+
+    user = (
+        db.query(User)
+        .filter(User.username == form_data.username)
+        .first()
+    )
+
+    if not user:
+        db.close()
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+
+    if not verify_password(
+        form_data.password,
+        user.hashed_password
+    ):
+        db.close()
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+
+    token = create_access_token({
+        "sub": user.username
+    })
+
+    db.close()
+
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }

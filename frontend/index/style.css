@@ -1,0 +1,136 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #222;
+}
+
+header {
+    background: #1f2937;
+    color: white;
+    padding: 25px 40px;
+}
+
+header h1 {
+    margin: 0;
+}
+
+header p {
+    margin: 8px 0 0;
+    color: #cbd5e1;
+}
+
+.summary {
+    display: flex;
+    gap: 20px;
+    padding: 25px 40px;
+}
+
+.summary-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    min-width: 180px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card span {
+    display: block;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.summary-card strong {
+    font-size: 28px;
+}
+
+.online strong {
+    color: #16a34a;
+}
+
+.offline strong {
+    color: #dc2626;
+}
+
+main {
+    padding: 0 40px 40px;
+}
+
+.device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.device-card {
+    background: white;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.device-name {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.status {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-online {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-offline {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.telemetry {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.metric {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.metric-label {
+    display: block;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.metric-value {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.device-info {
+    margin-top: 15px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.last-seen {
+    margin-top: 8px;
+}

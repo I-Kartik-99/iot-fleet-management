@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>IoT Fleet Dashboard</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header>
+        <h1>IoT Fleet Dashboard</h1>
+        <p>Live device monitoring</p>
+    </header>
+
+    <section class="summary">
+
+        <div class="summary-card">
+            <span>Total Devices</span>
+            <strong id="total-devices">0</strong>
+        </div>
+
+        <div class="summary-card online">
+            <span>Online</span>
+            <strong id="online-devices">0</strong>
+        </div>
+
+        <div class="summary-card offline">
+            <span>Offline</span>
+            <strong id="offline-devices">0</strong>
+        </div>
+
+    </section>
+
+    <main>
+
+        <div id="device-container" class="device-grid">
+            <p>Loading devices...</p>
+        </div>
+
+    </main>
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>

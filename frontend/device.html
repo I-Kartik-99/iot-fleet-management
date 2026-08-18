@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Details | IoT Fleet Manager</title>
+
+    <link rel="stylesheet" href="device.css">
+
+    <!-- Chart.js for live telemetry graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-icon">☁</div>
+        <span>IoT Fleet Manager</span>
+    </div>
+
+    <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="index.html">Devices</a>
+        <a href="#">Analytics</a>
+        <a href="#">Settings</a>
+    </nav>
+
+    <div class="system-status">
+        <span></span> System Online
+    </div>
+</header>
+
+<main class="detail-container">
+
+    <a href="index.html" class="back-button">← Back to Dashboard</a>
+
+    <section id="deviceDetails" class="device-header">
+        Loading device...
+    </section>
+
+    <section class="section-card">
+        <div class="section-heading">
+            <div>
+                <h2>Current Readings</h2>
+                <p>Latest telemetry from this device</p>
+            </div>
+
+            <div class="live-indicator">
+                <span></span> Real-time
+            </div>
+        </div>
+
+        <div id="currentReadings" class="reading-grid">
+            <div class="loading">Loading readings...</div>
+        </div>
+    </section>
+
+    <section class="section-card">
+        <div class="section-heading">
+            <div>
+                <h2>Telemetry Trends <small>(Last 30 Readings)</small></h2>
+                <p>Charts update automatically every 2 seconds</p>
+            </div>
+
+            <div class="live-indicator">
+                <span></span> Live
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-title">🌡 Temperature (°C)</div>
+                <canvas id="temperatureChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">💧 Humidity (%)</div>
+                <canvas id="humidityChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">⚡ Voltage (V)</div>
+                <canvas id="voltageChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">◉ Pressure (hPa)</div>
+                <canvas id="pressureChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-card">
+        <div class="section-heading">
+            <div>
+                <h2>Telemetry History</h2>
+                <p>Latest 10 readings • Auto-refresh every 2 seconds</p>
+            </div>
+
+            <div class="live-indicator">
+                <span></span> LIVE
+            </div>
+        </div>
+
+        <div id="telemetryContainer">
+            Loading telemetry...
+        </div>
+    </section>
+
+</main>
+
+<script src="device.js"></script>
+</body>
+</html>

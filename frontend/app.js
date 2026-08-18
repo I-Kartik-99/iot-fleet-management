@@ -1,9 +1,17 @@
 const API_URL = "http://127.0.0.1:8000";
 
+const REFRESH_INTERVAL = 3000;
+
+
+/* =========================================
+   API
+========================================= */
 
 async function getDevices() {
 
-    const response = await fetch(`${API_URL}/devices`);
+    const response = await fetch(
+        `${API_URL}/devices`
+    );
 
     if (!response.ok) {
         throw new Error("Failed to fetch devices");
@@ -15,35 +23,67 @@ async function getDevices() {
 
 async function getTelemetry(deviceId) {
 
-    const response = await fetch(
-        `${API_URL}/devices/${deviceId}/telemetry?limit=1`
-    );
+    try {
 
-    if (!response.ok) {
+        const response = await fetch(
+            `${API_URL}/devices/${encodeURIComponent(deviceId)}/telemetry?limit=1`
+        );
+
+        if (!response.ok) {
+            return [];
+        }
+
+        return await response.json();
+
+    } catch (error) {
+
+        console.error(
+            `Telemetry error for ${deviceId}:`,
+            error
+        );
+
         return [];
     }
-
-    return await response.json();
 }
 
 
 async function getStatus(deviceId) {
 
-    const response = await fetch(
-        `${API_URL}/devices/${deviceId}/status`
-    );
+    try {
 
-    if (!response.ok) {
+        const response = await fetch(
+            `${API_URL}/devices/${encodeURIComponent(deviceId)}/status`
+        );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        return await response.json();
+
+    } catch (error) {
+
+        console.error(
+            `Status error for ${deviceId}:`,
+            error
+        );
+
         return null;
     }
-
-    return await response.json();
 }
 
 
+/* =========================================
+   HELPERS
+========================================= */
+
 function formatValue(value, unit = "") {
 
-    if (value === null || value === undefined) {
+    if (
+        value === null ||
+        value === undefined ||
+        Number.isNaN(Number(value))
+    ) {
         return "--";
     }
 
@@ -51,32 +91,85 @@ function formatValue(value, unit = "") {
 }
 
 
-function createDeviceCard(device, telemetry, statusData) {
+function formatLastSeen(value) {
 
-    const latest = telemetry.length > 0
-        ? telemetry[0]
-        : null;
+    if (!value) {
+        return "Never";
+    }
 
-    const status = statusData
-        ? statusData.status
-        : "OFFLINE";
+    const date = new Date(value);
 
-    const statusClass = status === "ONLINE"
-        ? "status-online"
-        : "status-offline";
+    if (Number.isNaN(date.getTime())) {
+        return "Unknown";
+    }
 
-    const lastSeen = statusData && statusData.last_seen
-        ? new Date(statusData.last_seen).toLocaleString()
-        : "Never";
+    return date.toLocaleString(
+        "en-IN",
+        {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        }
+    );
+}
+
+
+/* =========================================
+   DEVICE CARD
+========================================= */
+
+function createDeviceCard(
+    device,
+    telemetry,
+    statusData
+) {
+
+    const latest =
+        telemetry.length > 0
+            ? telemetry[0]
+            : null;
+
+
+    const status =
+        statusData?.status || "OFFLINE";
+
+
+    const statusClass =
+        status === "ONLINE"
+            ? "status-online"
+            : "status-offline";
+
+
+    const lastSeen =
+        statusData?.last_seen
+            ? formatLastSeen(statusData.last_seen)
+            : "Never";
+
 
     return `
-        <div class="device-card">
+
+        <div
+            class="device-card"
+            onclick="openDevice('${device.device_id}')"
+        >
 
             <div class="device-header">
 
-                <div class="device-name">
-                    ${device.name}
+                <div>
+
+                    <div class="device-name">
+                        ${escapeHtml(device.name)}
+                    </div>
+
+                    <div class="device-info">
+                        ${escapeHtml(device.device_id)}
+                    </div>
+
                 </div>
+
 
                 <div class="status ${statusClass}">
                     ${status}
@@ -84,145 +177,337 @@ function createDeviceCard(device, telemetry, statusData) {
 
             </div>
 
-            <div class="device-info">
-                ${device.device_id}
-            </div>
 
             <div class="telemetry">
 
                 <div class="metric">
+
                     <span class="metric-label">
                         Temperature
                     </span>
 
                     <span class="metric-value">
-                        ${latest
-                            ? formatValue(latest.temperature, "°C")
-                            : "--"}
+                        ${
+                            latest
+                                ? formatValue(
+                                    latest.temperature,
+                                    "°C"
+                                )
+                                : "--"
+                        }
                     </span>
+
                 </div>
 
 
                 <div class="metric">
+
                     <span class="metric-label">
                         Humidity
                     </span>
 
                     <span class="metric-value">
-                        ${latest
-                            ? formatValue(latest.humidity, "%")
-                            : "--"}
+                        ${
+                            latest
+                                ? formatValue(
+                                    latest.humidity,
+                                    "%"
+                                )
+                                : "--"
+                        }
                     </span>
+
                 </div>
 
 
                 <div class="metric">
+
                     <span class="metric-label">
                         Voltage
                     </span>
 
                     <span class="metric-value">
-                        ${latest
-                            ? formatValue(latest.voltage, "V")
-                            : "--"}
+                        ${
+                            latest
+                                ? formatValue(
+                                    latest.voltage,
+                                    "V"
+                                )
+                                : "--"
+                        }
                     </span>
+
                 </div>
 
 
                 <div class="metric">
+
                     <span class="metric-label">
                         Pressure
                     </span>
 
                     <span class="metric-value">
-                        ${latest
-                            ? formatValue(latest.pressure, "hPa")
-                            : "--"}
+                        ${
+                            latest
+                                ? formatValue(
+                                    latest.pressure,
+                                    "hPa"
+                                )
+                                : "--"
+                        }
                     </span>
+
                 </div>
 
             </div>
 
-            <div class="device-info">
-                Type: ${device.device_type}
-            </div>
 
-            <div class="device-info last-seen">
-                Last seen: ${lastSeen}
+            <div class="device-footer">
+
+                <div class="device-type">
+                    Type:
+                    <strong>
+                        ${escapeHtml(device.device_type)}
+                    </strong>
+                </div>
+
+                <div class="last-seen">
+
+                    Last seen<br>
+
+                    <strong>
+                        ${lastSeen}
+                    </strong>
+
+                </div>
+
             </div>
 
         </div>
+
     `;
 }
 
 
+/* =========================================
+   LOAD DASHBOARD
+========================================= */
+
 async function loadDashboard() {
+
+    const container =
+        document.getElementById(
+            "device-container"
+        );
+
 
     try {
 
-        const devices = await getDevices();
+        const devices =
+            await getDevices();
+
+
+        /*
+         * Get status + telemetry for all devices
+         * in parallel instead of one-by-one.
+         */
+
+        const deviceData =
+            await Promise.all(
+
+                devices.map(
+                    async (device) => {
+
+                        const [
+                            statusData,
+                            telemetry
+                        ] = await Promise.all([
+                            getStatus(
+                                device.device_id
+                            ),
+                            getTelemetry(
+                                device.device_id
+                            )
+                        ]);
+
+
+                        return {
+                            device,
+                            statusData,
+                            telemetry
+                        };
+                    }
+                )
+            );
+
 
         let online = 0;
         let offline = 0;
 
-        const container =
-            document.getElementById("device-container");
 
-        container.innerHTML = "";
+        deviceData.forEach(
+            ({ statusData }) => {
 
-        for (const device of devices) {
+                if (
+                    statusData?.status ===
+                    "ONLINE"
+                ) {
 
-            const statusData =
-                await getStatus(device.device_id);
+                    online++;
 
-            if (statusData?.status === "ONLINE") {
-                online++;
-            } else {
-                offline++;
+                } else {
+
+                    offline++;
+                }
             }
-
-            const telemetry =
-                await getTelemetry(device.device_id);
-
-            container.innerHTML +=
-                createDeviceCard(
-                    device,
-                    telemetry,
-                    statusData
-                );
-        }
+        );
 
 
-        document.getElementById("total-devices")
-            .textContent = devices.length;
+        /*
+         * Update summary
+         */
 
-        document.getElementById("online-devices")
-            .textContent = online;
+        document.getElementById(
+            "total-devices"
+        ).textContent = devices.length;
 
-        document.getElementById("offline-devices")
-            .textContent = offline;
 
+        document.getElementById(
+            "online-devices"
+        ).textContent = online;
+
+
+        document.getElementById(
+            "offline-devices"
+        ).textContent = offline;
+
+
+        document.getElementById(
+            "device-count"
+        ).textContent =
+            `${devices.length} ${
+                devices.length === 1
+                    ? "device"
+                    : "devices"
+            }`;
+
+
+        /*
+         * Empty state
+         */
 
         if (devices.length === 0) {
 
-            container.innerHTML =
-                "<p>No devices registered.</p>";
+            container.innerHTML = `
+                <div class="empty-box">
+                    No devices registered yet.
+                </div>
+            `;
+
+            return;
         }
+
+
+        /*
+         * Render all cards at once
+         */
+
+        container.innerHTML =
+            deviceData
+                .map(
+                    ({
+                        device,
+                        statusData,
+                        telemetry
+                    }) =>
+                        createDeviceCard(
+                            device,
+                            telemetry,
+                            statusData
+                        )
+                )
+                .join("");
+
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Dashboard error:",
+            error
+        );
 
-        document.getElementById("device-container")
-            .innerHTML =
-            "<p>Unable to connect to FastAPI.</p>";
+
+        container.innerHTML = `
+            <div class="error-box">
+                Unable to connect to FastAPI.
+                <br>
+                <small>
+                    Make sure the backend is running.
+                </small>
+            </div>
+        `;
+
+
+        document.getElementById(
+            "total-devices"
+        ).textContent = "0";
+
+
+        document.getElementById(
+            "online-devices"
+        ).textContent = "0";
+
+
+        document.getElementById(
+            "offline-devices"
+        ).textContent = "0";
+
     }
 }
 
 
-// Initial load
+/* =========================================
+   OPEN DEVICE
+========================================= */
+
+function openDevice(deviceId) {
+
+    window.location.href =
+        `device.html?id=${encodeURIComponent(deviceId)}`;
+}
+
+
+/* =========================================
+   BASIC HTML ESCAPE
+========================================= */
+
+function escapeHtml(value) {
+
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+/* =========================================
+   INITIAL LOAD
+========================================= */
+
 loadDashboard();
 
 
-// Refresh every 3 seconds
-setInterval(loadDashboard, 3000);
+/* =========================================
+   LIVE REFRESH
+========================================= */
+
+setInterval(
+    loadDashboard,
+    REFRESH_INTERVAL
+);
