@@ -1,11 +1,23 @@
 import json
 import time
 import requests
+import paho.mqtt.client as mqtt
 
 from simulation.sensor_data import TelemetrySimulator
 
 
 API_BASE_URL = "http://127.0.0.1:8000"
+
+USERNAME = "admin"
+PASSWORD = "admin123"
+
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+REGISTER_TOPIC = "devices/register"
+
+
+# Currently running simulators
+sensors = {}
 
 
 def load_devices():
@@ -16,12 +28,52 @@ def load_devices():
     return config["devices"]
 
 
-def register_device(device):
+def login():
+
+    try:
+
+        response = requests.post(
+            f"{API_BASE_URL}/auth/login",
+            data={
+                "username": USERNAME,
+                "password": PASSWORD
+            },
+            timeout=5
+        )
+
+        if response.status_code != 200:
+
+            print(
+                "Login failed:",
+                response.status_code,
+                response.text
+            )
+
+            return None
+
+        token = response.json()["access_token"]
+
+        print("Authentication successful")
+
+        return token
+
+    except requests.RequestException as error:
+
+        print(
+            "Authentication request failed:",
+            error
+        )
+
+        return None
+
+
+def register_device(device, token):
 
     try:
 
         response = requests.post(
             f"{API_BASE_URL}/devices",
+
             json={
                 "device_id": device["device_id"],
                 "name": device["name"],
@@ -29,6 +81,11 @@ def register_device(device):
                 "location": device.get("location"),
                 "firmware_version": device.get("firmware_version")
             },
+
+            headers={
+                "Authorization": f"Bearer {token}"
+            },
+
             timeout=5
         )
 
@@ -50,6 +107,13 @@ def register_device(device):
                     f"Already registered"
                 )
 
+        elif response.status_code == 401:
+
+            print(
+                f"[{device['device_id']}] "
+                f"Authentication failed"
+            )
+
         else:
 
             print(
@@ -66,31 +130,131 @@ def register_device(device):
         )
 
 
+def start_simulator(device_id, interval=3):
+
+    # Don't start the same device twice
+    if device_id in sensors:
+
+        print(
+            f"[{device_id}] "
+            f"Simulator already running"
+        )
+
+        return
+
+    sensor = TelemetrySimulator(
+        device_id=device_id,
+        interval=interval
+    )
+
+    sensor.start()
+
+    sensors[device_id] = sensor
+
+    print(
+        f"[{device_id}] "
+        f"Simulator started automatically"
+    )
+
+
+def on_message(client, userdata, message):
+
+    if message.topic != REGISTER_TOPIC:
+        return
+
+    try:
+
+        data = json.loads(
+            message.payload.decode()
+        )
+
+        device_id = data["device_id"]
+
+        interval = data.get(
+            "interval",
+            3
+        )
+
+        print(
+            f"\nNew device registration event: "
+            f"{device_id}"
+        )
+
+        start_simulator(
+            device_id,
+            interval
+        )
+
+    except Exception as error:
+
+        print(
+            "Failed to process "
+            "device registration event:",
+            error
+        )
+
+
+def setup_mqtt():
+
+    client = mqtt.Client()
+
+    client.on_message = on_message
+
+    client.connect(
+        MQTT_BROKER,
+        MQTT_PORT,
+        60
+    )
+
+    client.subscribe(
+        REGISTER_TOPIC
+    )
+
+    client.loop_start()
+
+    print(
+        f"Listening for new devices on "
+        f"'{REGISTER_TOPIC}'"
+    )
+
+    return client
+
+
 def main():
 
-    devices = load_devices()
+    # Login first
+    token = login()
 
-    sensors = []
+    if not token:
+
+        print(
+            "Cannot start simulators "
+            "without authentication."
+        )
+
+        return
+
+
+    # Start MQTT listener
+    mqtt_client = setup_mqtt()
+
+
+    # Start existing devices
+    devices = load_devices()
 
     for device in devices:
 
-        # Register device in FastAPI
-        register_device(device)
-
-        # Start MQTT simulator
-        sensor = TelemetrySimulator(
-            device_id=device["device_id"],
-            interval=device["interval"]
+        # Register device using JWT
+        register_device(
+            device,
+            token
         )
 
-        sensor.start()
-
-        sensors.append(sensor)
-
-        print(
-            f"Started simulator: "
-            f"{device['device_id']}"
+        start_simulator(
+            device["device_id"],
+            device["interval"]
         )
+
 
     try:
 
@@ -99,12 +263,20 @@ def main():
 
     except KeyboardInterrupt:
 
-        print("\nStopping telemetry simulators...")
+        print(
+            "\nStopping telemetry simulators..."
+        )
 
-        for sensor in sensors:
+        for sensor in sensors.values():
             sensor.stop()
 
-        print("Telemetry simulators stopped")
+        mqtt_client.loop_stop()
+
+        mqtt_client.disconnect()
+
+        print(
+            "Telemetry simulators stopped"
+        )
 
 
 if __name__ == "__main__":

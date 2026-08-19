@@ -5,9 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel
 
+from sqlalchemy.exc import IntegrityError
+
 from app.database import Base, engine, SessionLocal
 from app.models.telemetry import Telemetry
 from app.models.device import Device
+from app.simulation_manager import simulator_manager
 
 import json
 import paho.mqtt.client as mqtt
@@ -65,6 +68,7 @@ class DeviceData(BaseModel):
     device_type: str
     location: str | None = None
     firmware_version: str | None = None
+    telemetry_interval: int = 2
 
 
 # =========================
@@ -181,6 +185,50 @@ mqtt_client.loop_start()
 
 
 # =========================
+# APP LIFECYCLE
+# =========================
+
+@app.on_event("startup")
+def resume_simulators():
+    """
+    In-memory simulator state doesn't survive a process restart, but
+    the device registry in Postgres does. On startup, re-launch a
+    simulator thread for every already-registered device so devices
+    that were simulating before a restart pick back up automatically.
+    """
+
+    db = SessionLocal()
+
+    try:
+        devices = db.query(Device).all()
+
+        for device in devices:
+            try:
+                simulator_manager.start(
+                    device.device_id,
+                    interval=device.telemetry_interval
+                )
+            except Exception as error:
+                print(
+                    f"Could not resume simulator for "
+                    f"{device.device_id}: {error}"
+                )
+
+    finally:
+        db.close()
+
+
+@app.on_event("shutdown")
+def stop_everything():
+    """Cleanly stop all simulator threads and the app's own MQTT client."""
+
+    simulator_manager.stop_all()
+
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
+
+
+# =========================
 # API ROUTES
 # =========================
 
@@ -209,15 +257,65 @@ def register_device(data: DeviceData):
 
     db = SessionLocal()
 
-    existing_device = (
-        db.query(Device)
-        .filter(Device.device_id == data.device_id)
-        .first()
-    )
+    try:
 
-    if existing_device:
+        existing_device = (
+            db.query(Device)
+            .filter(Device.device_id == data.device_id)
+            .first()
+        )
 
-        db.close()
+        if existing_device:
+
+            return {
+                "status": "error",
+                "message": "Device already registered",
+                "device_id": data.device_id
+            }
+
+        device = Device(
+            device_id=data.device_id,
+            name=data.name,
+            device_type=data.device_type,
+            location=data.location,
+            firmware_version=data.firmware_version,
+            telemetry_interval=data.telemetry_interval
+        )
+
+        db.add(device)
+
+        db.commit()
+
+        db.refresh(device)
+
+        # Auto-start telemetry simulation for the newly registered
+        # device. If the MQTT broker is unreachable this raises -
+        # don't fail the registration itself over it, since the
+        # device row is already committed and can be simulated later
+        # via the /simulate/start endpoint.
+        try:
+            simulator_manager.start(
+                device.device_id,
+                interval=device.telemetry_interval
+            )
+        except Exception as error:
+            print(
+                f"Could not start simulator for "
+                f"{device.device_id}: {error}"
+            )
+
+        return {
+            "status": "registered",
+            "device_id": device.device_id
+        }
+
+    except IntegrityError:
+
+        # Two requests raced past the "does it exist" check above and
+        # both tried to insert the same device_id. The DB's unique
+        # constraint is the real source of truth here - treat it the
+        # same as the "already registered" case instead of a 500.
+        db.rollback()
 
         return {
             "status": "error",
@@ -225,27 +323,72 @@ def register_device(data: DeviceData):
             "device_id": data.device_id
         }
 
-    device = Device(
-        device_id=data.device_id,
-        name=data.name,
-        device_type=data.device_type,
-        location=data.location,
-        firmware_version=data.firmware_version
-    )
+    finally:
 
-    db.add(device)
+        # Always release the connection, even if commit()/query()
+        # raised - otherwise a failed registration leaks a Postgres
+        # connection and the pool eventually runs dry.
+        db.close()
 
-    db.commit()
 
-    db.refresh(device)
+# =========================
+# SIMULATION CONTROL
+# =========================
 
-    device_id = device.device_id
+@app.post("/devices/{device_id}/simulate/start")
+def start_simulation(
+    device_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    db = SessionLocal()
 
-    db.close()
+    try:
+        device = (
+            db.query(Device)
+            .filter(Device.device_id == device_id)
+            .first()
+        )
+
+        if not device:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Device {device_id} is not registered"
+            )
+
+        started = simulator_manager.start(
+            device.device_id,
+            interval=device.telemetry_interval
+        )
+
+        return {
+            "device_id": device_id,
+            "simulating": True,
+            "message": (
+                "Simulation started"
+                if started
+                else "Simulation was already running"
+            )
+        }
+
+    finally:
+        db.close()
+
+
+@app.post("/devices/{device_id}/simulate/stop")
+def stop_simulation(
+    device_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    stopped = simulator_manager.stop(device_id)
 
     return {
-        "status": "registered",
-        "device_id": device_id
+        "device_id": device_id,
+        "simulating": False,
+        "message": (
+            "Simulation stopped"
+            if stopped
+            else "Simulation was not running"
+        )
     }
 
 

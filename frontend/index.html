@@ -17,23 +17,59 @@
     <header class="topbar">
 
         <div class="brand">
-            <div class="brand-icon">⌁</div>
+
+            <div class="brand-icon">
+                ⌁
+            </div>
 
             <div>
-                <h2>IoT Fleet Manager</h2>
+
+                <h2>
+                    IoT Fleet Manager
+                </h2>
+
+                <button
+                    onclick="logout()"
+                    class="logout-btn"
+                >
+                    Logout
+                </button>
+
             </div>
+
         </div>
 
+
         <nav>
-            <a class="active" href="index.html">Dashboard</a>
-            <a href="#devices">Devices</a>
-            <a href="#analytics">Analytics</a>
-            <a href="#settings">Settings</a>
+
+            <a
+                class="active"
+                href="index.html"
+            >
+                Dashboard
+            </a>
+
+            <a href="#devices">
+                Devices
+            </a>
+
+            <a href="#analytics">
+                Analytics
+            </a>
+
+            <a href="#settings">
+                Settings
+            </a>
+
         </nav>
 
+
         <div class="system-status">
+
             <span class="system-dot"></span>
+
             System Online
+
         </div>
 
     </header>
@@ -43,31 +79,46 @@
 
     <main>
 
-        <!-- Page heading -->
+
+        <!-- ================= PAGE HEADING ================= -->
 
         <section class="page-heading">
 
             <div>
-                <p class="eyebrow">FLEET OVERVIEW</p>
 
-                <h1>Dashboard</h1>
+                <p class="eyebrow">
+                    FLEET OVERVIEW
+                </p>
+
+                <h1>
+                    Dashboard
+                </h1>
 
                 <p class="subtitle">
                     Monitor your IoT devices and live telemetry in real-time.
                 </p>
+
             </div>
 
+
             <div class="refresh-info">
+
                 <span class="live-dot"></span>
+
                 Live updates every 3 seconds
+
             </div>
 
         </section>
 
 
+
         <!-- ================= SUMMARY ================= -->
 
         <section class="summary">
+
+
+            <!-- TOTAL DEVICES -->
 
             <div class="summary-card">
 
@@ -76,12 +127,21 @@
                 </div>
 
                 <div>
-                    <span>Total Devices</span>
-                    <strong id="total-devices">0</strong>
+
+                    <span>
+                        Total Devices
+                    </span>
+
+                    <strong id="total-devices">
+                        0
+                    </strong>
+
                 </div>
 
             </div>
 
+
+            <!-- ONLINE -->
 
             <div class="summary-card">
 
@@ -90,14 +150,24 @@
                 </div>
 
                 <div>
-                    <span>Online</span>
-                    <strong id="online-devices" class="online-number">
+
+                    <span>
+                        Online
+                    </span>
+
+                    <strong
+                        id="online-devices"
+                        class="online-number"
+                    >
                         0
                     </strong>
+
                 </div>
 
             </div>
 
+
+            <!-- OFFLINE -->
 
             <div class="summary-card">
 
@@ -106,10 +176,18 @@
                 </div>
 
                 <div>
-                    <span>Offline</span>
-                    <strong id="offline-devices" class="offline-number">
+
+                    <span>
+                        Offline
+                    </span>
+
+                    <strong
+                        id="offline-devices"
+                        class="offline-number"
+                    >
                         0
                     </strong>
+
                 </div>
 
             </div>
@@ -117,32 +195,75 @@
         </section>
 
 
+
         <!-- ================= DEVICES ================= -->
 
-        <section id="devices" class="devices-section">
+        <section
+            id="devices"
+            class="devices-section"
+        >
+
 
             <div class="section-heading">
 
+
                 <div>
-                    <h2>Registered Devices</h2>
+
+                    <h2>
+                        Registered Devices
+                    </h2>
 
                     <p>
                         Live status and latest telemetry from your fleet
                     </p>
+
                 </div>
 
-                <div class="device-count" id="device-count">
-                    0 devices
+
+                <div
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                    "
+                >
+
+                    <button
+                        class="add-device-btn"
+                        onclick="openAddDeviceForm()"
+                    >
+                        + Add Device
+                    </button>
+
+
+                    <div
+                        class="device-count"
+                        id="device-count"
+                    >
+                        0 devices
+                    </div>
+
                 </div>
 
             </div>
 
 
-            <div id="device-container" class="device-grid">
+
+            <!-- DEVICE CARDS -->
+
+            <div
+                id="device-container"
+                class="device-grid"
+            >
 
                 <div class="loading-card">
+
                     <div class="loader"></div>
-                    <span>Loading devices...</span>
+
+                    <span>
+                        Loading devices...
+                    </span>
+
                 </div>
 
             </div>
@@ -151,6 +272,152 @@
 
     </main>
 
+
+
+    <!-- ================================================= -->
+    <!-- ADD DEVICE MODAL -->
+    <!-- ================================================= -->
+
+    <div
+        id="add-device-modal"
+        class="modal hidden"
+    >
+
+        <div class="modal-content">
+
+
+            <!-- MODAL HEADER -->
+
+            <div class="modal-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        DEVICE MANAGEMENT
+                    </p>
+
+                    <h2>
+                        Register New Device
+                    </h2>
+
+                </div>
+
+
+                <button
+                    class="close-btn"
+                    onclick="closeAddDeviceForm()"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+
+            <!-- DEVICE FORM -->
+
+            <form id="add-device-form">
+
+
+                <!-- DEVICE ID -->
+
+                <label for="device-id">
+                    Device ID
+                </label>
+
+                <input
+                    type="text"
+                    id="device-id"
+                    placeholder="ESP32-004"
+                    required
+                >
+
+
+
+                <!-- DEVICE NAME -->
+
+                <label for="device-name">
+                    Name
+                </label>
+
+                <input
+                    type="text"
+                    id="device-name"
+                    placeholder="Temperature Sensor 4"
+                    required
+                >
+
+
+
+                <!-- DEVICE TYPE -->
+
+                <label for="device-type">
+                    Device Type
+                </label>
+
+                <input
+                    type="text"
+                    id="device-type"
+                    placeholder="temperature_sensor"
+                    required
+                >
+
+
+
+                <!-- LOCATION -->
+
+                <label for="device-location">
+                    Location
+                </label>
+
+                <input
+                    type="text"
+                    id="device-location"
+                    placeholder="Plant-1"
+                >
+
+
+
+                <!-- FIRMWARE -->
+
+                <label for="firmware-version">
+                    Firmware Version
+                </label>
+
+                <input
+                    type="text"
+                    id="firmware-version"
+                    placeholder="1.0.0"
+                >
+
+
+
+                <!-- MESSAGE -->
+
+                <p
+                    id="device-form-message"
+                ></p>
+
+
+
+                <!-- REGISTER BUTTON -->
+
+                <button
+                    type="submit"
+                    class="register-btn"
+                >
+                    Register Device
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ================= JAVASCRIPT ================= -->
 
     <script src="app.js"></script>
 

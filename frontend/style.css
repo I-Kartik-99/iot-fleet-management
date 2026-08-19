@@ -963,3 +963,95 @@ main {
         display: none;
     }
 }
+
+.add-device-btn {
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 1000;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    width: 420px;
+    max-width: 90%;
+
+    padding: 28px;
+    border-radius: 18px;
+
+    background: white;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+.close-btn {
+    border: none;
+    background: transparent;
+
+    font-size: 28px;
+    cursor: pointer;
+}
+
+#add-device-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#add-device-form input {
+    padding: 11px 12px;
+
+    border: 1px solid #ddd;
+    border-radius: 8px;
+
+    font-size: 14px;
+
+    margin-bottom: 8px;
+}
+
+.register-btn {
+    border: none;
+
+    padding: 12px;
+
+    border-radius: 9px;
+
+    cursor: pointer;
+
+    font-weight: 600;
+
+    margin-top: 8px;
+}
+
+#device-form-message {
+    min-height: 20px;
+    font-size: 13px;
+}

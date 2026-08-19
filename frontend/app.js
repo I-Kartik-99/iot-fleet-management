@@ -1,7 +1,45 @@
-const API_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://127.0.0.1:8000";
+
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.replace("login.html");
+    throw new Error("Not authenticated");
+}
 
 const REFRESH_INTERVAL = 3000;
 
+
+async function apiFetch(url, options = {}) {
+
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+        window.location.replace("login.html");
+        return null;
+    }
+
+    const headers = {
+        ...(options.headers || {}),
+        "Authorization": `Bearer ${token}`
+    };
+
+    const response = await fetch(url, {
+        ...options,
+        headers
+    });
+
+    if (response.status === 401) {
+
+        localStorage.removeItem("access_token");
+
+        window.location.replace("login.html");
+
+        return null;
+    }
+
+    return response;
+}
 
 /* =========================================
    API
@@ -9,8 +47,8 @@ const REFRESH_INTERVAL = 3000;
 
 async function getDevices() {
 
-    const response = await fetch(
-        `${API_URL}/devices`
+    const response = await apiFetch(
+        `${API_BASE_URL}/devices`
     );
 
     if (!response.ok) {
@@ -25,8 +63,8 @@ async function getTelemetry(deviceId) {
 
     try {
 
-        const response = await fetch(
-            `${API_URL}/devices/${encodeURIComponent(deviceId)}/telemetry?limit=1`
+        const response = await apiFetch(
+            `${API_BASE_URL}/devices/${encodeURIComponent(deviceId)}/telemetry?limit=1`
         );
 
         if (!response.ok) {
@@ -51,8 +89,8 @@ async function getStatus(deviceId) {
 
     try {
 
-        const response = await fetch(
-            `${API_URL}/devices/${encodeURIComponent(deviceId)}/status`
+        const response = await apiFetch(
+            `${API_BASE_URL}/devices/${encodeURIComponent(deviceId)}/status`
         );
 
         if (!response.ok) {
@@ -511,3 +549,142 @@ setInterval(
     loadDashboard,
     REFRESH_INTERVAL
 );
+
+function logout() {
+    localStorage.removeItem("access_token");
+    window.location.href = "login.html";
+}
+
+function openAddDeviceForm() {
+
+    document
+        .getElementById("add-device-modal")
+        .classList.remove("hidden");
+}
+
+
+function closeAddDeviceForm() {
+
+    document
+        .getElementById("add-device-modal")
+        .classList.add("hidden");
+
+    document
+        .getElementById("add-device-form")
+        .reset();
+
+    document
+        .getElementById("device-form-message")
+        .textContent = "";
+}
+
+
+document
+    .getElementById("add-device-form")
+    .addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+
+        const message =
+            document.getElementById(
+                "device-form-message"
+            );
+
+        const deviceData = {
+
+            device_id:
+                document.getElementById(
+                    "device-id"
+                ).value.trim(),
+
+            name:
+                document.getElementById(
+                    "device-name"
+                ).value.trim(),
+
+            device_type:
+                document.getElementById(
+                    "device-type"
+                ).value.trim(),
+
+            location:
+                document.getElementById(
+                    "device-location"
+                ).value.trim() || null,
+
+            firmware_version:
+                document.getElementById(
+                    "firmware-version"
+                ).value.trim() || null
+        };
+
+
+        try {
+
+            const response = await apiFetch(
+                `${API_BASE_URL}/devices`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify(
+                        deviceData
+                    )
+                }
+            );
+
+
+            if (!response) {
+                return;
+            }
+
+
+            const result =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                message.textContent =
+                    result.detail ||
+                    result.message ||
+                    "Device registration failed.";
+
+                return;
+            }
+
+
+            message.textContent =
+                "Device registered successfully!";
+
+
+            document
+                .getElementById("add-device-form")
+                .reset();
+
+
+            setTimeout(() => {
+
+                closeAddDeviceForm();
+
+                loadDashboard();
+
+            }, 800);
+
+
+        } catch (error) {
+
+            console.error(
+                "Device registration error:",
+                error
+            );
+
+            message.textContent =
+                "Unable to connect to FastAPI.";
+        }
+
+    });

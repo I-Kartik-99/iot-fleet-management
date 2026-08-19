@@ -22,6 +22,7 @@ class Device(Base):
     firmware_version = Column(String, nullable=True)
     status = Column(String, default="OFFLINE")
     last_seen = Column(DateTime, nullable=True)
+    telemetry_interval = Column(Integer, nullable=False, default=2)
 
 
     created_at = Column(
