@@ -10,7 +10,6 @@ from sqlalchemy.exc import IntegrityError
 from app.database import Base, engine, SessionLocal
 from app.models.telemetry import Telemetry
 from app.models.device import Device
-from app.simulation_manager import simulator_manager
 
 import json
 import paho.mqtt.client as mqtt
@@ -47,6 +46,7 @@ app.add_middleware(
 MQTT_BROKER = "127.0.0.1"
 MQTT_PORT = 1883
 MQTT_TOPIC = "devices/+/telemetry"
+DEVICE_REGISTER_TOPIC = "devices/register"
 
 
 Base.metadata.create_all(bind=engine)
@@ -188,41 +188,9 @@ mqtt_client.loop_start()
 # APP LIFECYCLE
 # =========================
 
-@app.on_event("startup")
-def resume_simulators():
-    """
-    In-memory simulator state doesn't survive a process restart, but
-    the device registry in Postgres does. On startup, re-launch a
-    simulator thread for every already-registered device so devices
-    that were simulating before a restart pick back up automatically.
-    """
-
-    db = SessionLocal()
-
-    try:
-        devices = db.query(Device).all()
-
-        for device in devices:
-            try:
-                simulator_manager.start(
-                    device.device_id,
-                    interval=device.telemetry_interval
-                )
-            except Exception as error:
-                print(
-                    f"Could not resume simulator for "
-                    f"{device.device_id}: {error}"
-                )
-
-    finally:
-        db.close()
-
-
 @app.on_event("shutdown")
 def stop_everything():
-    """Cleanly stop all simulator threads and the app's own MQTT client."""
-
-    simulator_manager.stop_all()
+    """Cleanly disconnect the app's own MQTT client on shutdown."""
 
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
@@ -288,19 +256,24 @@ def register_device(data: DeviceData):
 
         db.refresh(device)
 
-        # Auto-start telemetry simulation for the newly registered
-        # device. If the MQTT broker is unreachable this raises -
-        # don't fail the registration itself over it, since the
-        # device row is already committed and can be simulated later
-        # via the /simulate/start endpoint.
+        # Backend doesn't run any simulators itself. Publish a
+        # registration event instead - main.py (running separately)
+        # subscribes to this topic and starts the simulator for this
+        # device on its own. If the broker is unreachable, don't fail
+        # the registration itself over it - the device row is already
+        # committed and main.py will pick it up on its next run via
+        # GET /devices regardless.
         try:
-            simulator_manager.start(
-                device.device_id,
-                interval=device.telemetry_interval
+            mqtt_client.publish(
+                DEVICE_REGISTER_TOPIC,
+                json.dumps({
+                    "device_id": device.device_id,
+                    "interval": device.telemetry_interval
+                })
             )
         except Exception as error:
             print(
-                f"Could not start simulator for "
+                f"Could not publish registration event for "
                 f"{device.device_id}: {error}"
             )
 
@@ -329,67 +302,6 @@ def register_device(data: DeviceData):
         # raised - otherwise a failed registration leaks a Postgres
         # connection and the pool eventually runs dry.
         db.close()
-
-
-# =========================
-# SIMULATION CONTROL
-# =========================
-
-@app.post("/devices/{device_id}/simulate/start")
-def start_simulation(
-    device_id: str,
-    current_user: str = Depends(get_current_user)
-):
-    db = SessionLocal()
-
-    try:
-        device = (
-            db.query(Device)
-            .filter(Device.device_id == device_id)
-            .first()
-        )
-
-        if not device:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Device {device_id} is not registered"
-            )
-
-        started = simulator_manager.start(
-            device.device_id,
-            interval=device.telemetry_interval
-        )
-
-        return {
-            "device_id": device_id,
-            "simulating": True,
-            "message": (
-                "Simulation started"
-                if started
-                else "Simulation was already running"
-            )
-        }
-
-    finally:
-        db.close()
-
-
-@app.post("/devices/{device_id}/simulate/stop")
-def stop_simulation(
-    device_id: str,
-    current_user: str = Depends(get_current_user)
-):
-    stopped = simulator_manager.stop(device_id)
-
-    return {
-        "device_id": device_id,
-        "simulating": False,
-        "message": (
-            "Simulation stopped"
-            if stopped
-            else "Simulation was not running"
-        )
-    }
 
 
 # =========================

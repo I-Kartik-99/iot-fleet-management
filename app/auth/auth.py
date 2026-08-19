@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
@@ -11,31 +11,37 @@ ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto"
-)
+# bcrypt only uses the first 72 bytes of the input - anything beyond
+# that is silently ignored by the algorithm itself, but newer bcrypt
+# versions raise instead of truncating for you, so we do it explicitly.
+BCRYPT_MAX_BYTES = 72
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
 
 
-def hash_password(password: str):
+def hash_password(password: str) -> str:
 
-    return pwd_context.hash(password)
+    password_bytes = password.encode("utf-8")[:BCRYPT_MAX_BYTES]
+
+    hashed = bcrypt.hashpw(
+        password_bytes,
+        bcrypt.gensalt()
+    )
+
+    return hashed.decode("utf-8")
 
 
 def verify_password(
     plain_password: str,
     hashed_password: str
-):
+) -> bool:
 
-    return pwd_context.verify(
-        plain_password,
-        hashed_password
-    )
+    plain_bytes = plain_password.encode("utf-8")[:BCRYPT_MAX_BYTES]
+    hashed_bytes = hashed_password.encode("utf-8")
+
+    return bcrypt.checkpw(plain_bytes, hashed_bytes)
 
 
 def create_access_token(data: dict):

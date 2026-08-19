@@ -130,6 +130,46 @@ def register_device(device, token):
         )
 
 
+def fetch_registered_devices(token):
+    """
+    Fetch every device already registered in the DB - this covers
+    devices registered before main.py was started (e.g. through the
+    dashboard), which the devices.json fixtures and the live MQTT
+    registration event alone wouldn't catch.
+    """
+
+    try:
+
+        response = requests.get(
+            f"{API_BASE_URL}/devices",
+            headers={
+                "Authorization": f"Bearer {token}"
+            },
+            timeout=5
+        )
+
+        if response.status_code != 200:
+
+            print(
+                "Could not fetch existing devices:",
+                response.status_code,
+                response.text
+            )
+
+            return []
+
+        return response.json()
+
+    except requests.RequestException as error:
+
+        print(
+            "Request to fetch existing devices failed:",
+            error
+        )
+
+        return []
+
+
 def start_simulator(device_id, interval=3):
 
     # Don't start the same device twice
@@ -235,11 +275,25 @@ def main():
         return
 
 
-    # Start MQTT listener
+    # Start MQTT listener - picks up devices registered *while this
+    # script is running* (e.g. through the dashboard)
     mqtt_client = setup_mqtt()
 
 
-    # Start existing devices
+    # Resume simulation for every device already registered in the DB
+    # before this script started
+    existing_devices = fetch_registered_devices(token)
+
+    for device in existing_devices:
+
+        start_simulator(
+            device["device_id"],
+            device.get("telemetry_interval", 3)
+        )
+
+
+    # Start fixture devices from devices.json that aren't already
+    # registered (start_simulator skips duplicates on its own)
     devices = load_devices()
 
     for device in devices:
